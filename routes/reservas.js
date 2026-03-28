@@ -61,4 +61,44 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.post('/', async (req, res, next) => {
+  try {
+    const { id_persona, id_actividad, fecha } = req.body;
+
+    
+    if (!id_persona || !id_actividad || !fecha) {
+      return res.status(400).json({
+        error: 'id_persona, id_actividad y fecha son obligatorios'
+      });
+    }
+
+  
+    if (new Date(fecha) < new Date()) {
+      return res.status(400).json({
+        error: 'La fecha no puede ser en el pasado'
+      });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO reserva (id_persona, id_actividad, fecha)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [id_persona, id_actividad, fecha]
+    );
+
+    res.status(201).json(result.rows[0]);
+
+  } catch (err) {
+
+    if (err.code === '23503') {
+      return res.status(400).json({
+        error: 'La persona o la actividad no existen'
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Error al crear la reserva'
+    });
+  }
+});
 module.exports = router;
