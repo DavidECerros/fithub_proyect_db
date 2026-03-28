@@ -1,51 +1,63 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
+const db = require('../db');
 
-router.get('/', async (req, res, next) => {
+router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id_reserva, id_cliente, id_actividad, fecha, estado
-       FROM reserva
-       ORDER BY id_reserva`
-    );
+    const result = await db.query(`
+      SELECT
+        r.id_reserva,
+        r.fecha,
+        r.estado,
+        r.id_cliente,
+        CONCAT(p.nombre1, ' ', p.apellido1, ' ', COALESCE(p.apellido2, '')) AS cliente,
+        a.nombre AS actividad
+      FROM public.reserva r
+      INNER JOIN public.cliente c
+        ON r.id_cliente = c.id_persona
+      INNER JOIN public.persona p
+        ON c.id_persona = p.id_persona
+      INNER JOIN public.actividad a
+        ON r.id_actividad = a.id_actividad
+      ORDER BY r.id_reserva
+    `);
+
     res.json(result.rows);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener reservas', error: error.message });
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      `SELECT id_reserva, id_cliente, id_actividad, fecha, estado
-       FROM reserva
-       WHERE id_reserva = $1`,
-      [id]
-    );
+
+    const result = await db.query(`
+      SELECT
+        r.id_reserva,
+        r.fecha,
+        r.estado,
+        r.id_cliente,
+        r.id_actividad,
+        CONCAT(p.nombre1, ' ', p.apellido1, ' ', COALESCE(p.apellido2, '')) AS cliente,
+        a.nombre AS actividad
+      FROM public.reserva r
+      INNER JOIN public.cliente c
+        ON r.id_cliente = c.id_persona
+      INNER JOIN public.persona p
+        ON c.id_persona = p.id_persona
+      INNER JOIN public.actividad a
+        ON r.id_actividad = a.id_actividad
+      WHERE r.id_reserva = $1
+    `, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Reserva no encontrada' });
     }
 
     res.json(result.rows[0]);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/', async (req, res, next) => {
-  try {
-    const { id_cliente, id_actividad, fecha } = req.body;
-    const result = await pool.query(
-      `INSERT INTO reserva (id_cliente, id_actividad, fecha)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [id_cliente, id_actividad, fecha]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener reserva', error: error.message });
   }
 });
 
