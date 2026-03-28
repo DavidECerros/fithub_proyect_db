@@ -35,18 +35,44 @@ router.get('/:id', async (req, res, next) => {
     next(err);
   }
 });
-
 router.post('/', async (req, res, next) => {
   try {
     const { id_reserva, monto, metodo_pago, fecha_pago } = req.body;
+
+    
+    if (!id_reserva || !monto) {
+      return res.status(400).json({
+        error: 'id_reserva y monto son obligatorios'
+      });
+    }
+
+    if (monto <= 0) {
+      return res.status(400).json({
+        error: 'El monto debe ser mayor a 0'
+      });
+    }
+
     const result = await pool.query(
       `INSERT INTO pago (id_reserva, monto, metodo_pago, fecha_pago)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
       [id_reserva, monto, metodo_pago, fecha_pago || new Date()]
     );
+
     res.status(201).json(result.rows[0]);
+
   } catch (err) {
-    next(err);
+
+    
+    if (err.code === '23503') {
+      return res.status(400).json({
+        error: 'La reserva no existe'
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Error al registrar el pago'
+    });
   }
 });
 
