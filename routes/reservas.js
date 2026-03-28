@@ -61,6 +61,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 router.post('/', async (req, res, next) => {
   try {
     const { id_persona, id_actividad, fecha } = req.body;
@@ -101,4 +102,52 @@ router.post('/', async (req, res, next) => {
     });
   }
 });
+=======
+// PUT /api/reservas/:id — actualizar reserva completa
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { id_cliente, id_actividad, fecha, estado } = req.body;
+
+  if (!id_cliente || !id_actividad || !fecha || !estado) {
+    return res.status(400).json({ error: 'id_cliente, id_actividad, fecha y estado son requeridos' });
+  }
+
+  try {
+    const result = await db.query(
+      `UPDATE reserva
+       SET id_cliente=$1, id_actividad=$2, fecha=$3, estado=$4
+       WHERE id_reserva=$5 RETURNING *`,
+      [id_cliente, id_actividad, fecha, estado, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar reserva', error: error.message });
+  }
+});
+
+// PATCH /api/reservas/:id — actualizar campos parciales (ej. solo el estado)
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const campos = req.body;
+  const keys = Object.keys(campos);
+
+  if (keys.length === 0) return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
+
+  const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
+  const values = [...Object.values(campos), id];
+
+  try {
+    const result = await db.query(
+      `UPDATE reserva SET ${setClause} WHERE id_reserva=$${keys.length + 1} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar reserva', error: error.message });
+  }
+});
+
+>>>>>>> 3563e85 (agregar imagenes y actualizaciones)
 module.exports = router;

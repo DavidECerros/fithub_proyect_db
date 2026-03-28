@@ -49,4 +49,50 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// PUT /api/personas/:id — actualizar persona completa
+router.put('/:id', async (req, res, next) => {
+  const { id } = req.params;
+  const { nombre1, apellido1, apellido2, email, password, tipo } = req.body;
+
+  if (!nombre1 || !apellido1 || !email || !password || !tipo) {
+    return res.status(400).json({ error: 'nombre1, apellido1, email, password y tipo son requeridos' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE persona
+       SET nombre1=$1, apellido1=$2, apellido2=$3, email=$4, password=$5, tipo=$6
+       WHERE id_persona=$7 RETURNING *`,
+      [nombre1, apellido1, apellido2 || null, email, password, tipo, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Persona no encontrada' });
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/personas/:id — actualizar campos parciales (ej. solo el tipo)
+router.patch('/:id', async (req, res, next) => {
+  const { id } = req.params;
+  const campos = req.body;
+  const keys = Object.keys(campos);
+
+  if (keys.length === 0) return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
+
+  const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
+  const values = [...Object.values(campos), id];
+
+  try {
+    const result = await pool.query(
+      `UPDATE persona SET ${setClause} WHERE id_persona=$${keys.length + 1} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Persona no encontrada' });
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

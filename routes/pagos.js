@@ -50,4 +50,51 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// PUT /api/pagos/:id_reserva/:num_pago — actualizar pago completo
+// La tabla pago tiene PK compuesta (id_reserva, num_pago)
+router.put('/:id_reserva/:num_pago', async (req, res, next) => {
+  const { id_reserva, num_pago } = req.params;
+  const { monto, metodo_pago, fecha_pago } = req.body;
+
+  if (!monto || !metodo_pago || !fecha_pago) {
+    return res.status(400).json({ error: 'monto, metodo_pago y fecha_pago son requeridos' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE pago
+       SET monto=$1, metodo_pago=$2, fecha_pago=$3
+       WHERE id_reserva=$4 AND num_pago=$5 RETURNING *`,
+      [monto, metodo_pago, fecha_pago, id_reserva, num_pago]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Pago no encontrado' });
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/pagos/:id_reserva/:num_pago — actualizar campos parciales
+router.patch('/:id_reserva/:num_pago', async (req, res, next) => {
+  const { id_reserva, num_pago } = req.params;
+  const campos = req.body;
+  const keys = Object.keys(campos);
+
+  if (keys.length === 0) return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
+
+  const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
+  const values = [...Object.values(campos), id_reserva, num_pago];
+
+  try {
+    const result = await pool.query(
+      `UPDATE pago SET ${setClause} WHERE id_reserva=$${keys.length + 1} AND num_pago=$${keys.length + 2} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Pago no encontrado' });
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
